@@ -1,0 +1,388 @@
+---
+title: "Untitled"
+author: "Mitchell Ardolf"
+date: "10/9/2023"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(123)
+
+library(dslabs)
+mnist <- read_mnist("~/Mscs 341 F23/Class/Data")
+
+
+#Functions from earlier
+get_image_digit_train <- function(digit) {
+  idx <- mnist$train$labels == digit
+  images <- mnist$train$images[idx,]
+  return(images)
+}
+
+get_image_digit_test <- function(digit) {
+  idx <- mnist$test$labels == digit
+  images <- mnist$test$images[idx,]
+  return(images)
+}
+
+#Pulling 400 random 6 digit samples from the training dataset
+digit_6_train <- get_image_digit_train(6)
+num_train <- 400
+sample_train <- sample(nrow(digit_6_train), num_train, replace = FALSE)
+sample_digit_6_train <- digit_6_train[sample_train,]
+
+#Pulling 100 random 6 digit samples from the testing dataset
+digit_6_test <- get_image_digit_test(6)
+num_test <- 100
+sample_test <- sample(nrow(digit_6_test), num_test, replace = FALSE)
+sample_digit_6_test <- digit_6_test[sample_test, ]
+
+#Adding to testing & training datasets to create new testing & training datasets
+new_data_train <- rbind(sample_digit_6_train, sampled_data_train)#ERROR, what to replace with
+new_data_test <- rbind(sample_digit_6_test, sampled_data_test) #ERROR
+  
+#Write files
+write.csv(new_data_train, file = file_path_train)
+write.csv(new_data_test, file = file_path_test)
+
+
+###Need to retrain the model on new dataset
+```
+
+
+# Same format as previous
+
+
+
+```{r echo=FALSE}
+
+# Plots a digit as text matrix on the terminal
+plot_text <- function(image) {
+  a_digit <- matrix(image, nrow=28)
+  even_pos <- seq(4,24,2)
+  (a_digit[even_pos,even_pos])
+}
+
+# This function outputs a contrasted image 
+# Notice an image is represented as a vector of 784 number from 0 to 255.
+contrast_digit <- function(image){
+  dark_idx = (image>128)
+  image[dark_idx]=255   # Turn dark pixel indexes to 255
+  image[!dark_idx]=0    # Turn non-dark pixel indexes to 0 (we use symbol !)
+  return (image)
+}
+
+# Plots a digit as an image
+plot_digit <- function(image) {
+  a_digit <- matrix(image, nrow=28)
+  image(a_digit[,28:1])
+}
+
+# This function outputs a contrasted image 
+# Notice an image is represented as a vector of 784 number from 0 to 255.
+contrast_digit <- function(image){
+  dark_idx = (image>128)
+  image[dark_idx]=255   # Turn dark pixel indexes to 255
+  image[!dark_idx]=0    # Turn non-dark pixel indexes to 0 (we use symbol !)
+  return (image)
+}
+
+# This function calculates the number of dark pixels from an image
+# Notice an image is represented as a vector of 784 number from 0 to 255.
+count_dark_pixels <- function (image){
+  dark_idx <- image>128
+  num_pixels <- sum(dark_idx)
+  return(num_pixels)
+}
+
+count_light_pixels <- function (image){
+  light_idx <- image<128
+  num_pixels <- sum(light_idx)
+  return(num_pixels)
+}
+
+# This function returns a matrix with all the images corresponding to a digit (0-9) 
+# from your mnist training dataset.
+# The matrix will have 784 columns and the number of rows corresponds to the
+# number of images
+get_image_train_digit <- function (digit) {
+  idx <- mnist$train$labels==digit
+  images <- mnist$train$images[idx,]
+  return (images)
+}
+
+# This function returns a matrix with all the images corresponding to a digit (0-9) 
+# from your mnist testing dataset.
+# The matrix will have 784 columns and the number of rows corresponds to the
+# number of images
+get_image_test_digit <- function (digit) {
+  idx <- mnist$test$labels==digit
+  images <- mnist$test$images[idx,]
+  return (images)
+}
+```
+
+```{r}
+library(dslabs)
+mnist <- read_mnist("~/Mscs 341 F23/Class/Data")
+
+# Plots a digit as an image
+plot_digit <- function(image) {
+  a_digit <- matrix(image, nrow=28)
+  image(a_digit[,28:1])
+}
+
+# This function returns a matrix with all the images corresponding to a digit (0-9) 
+# The matrix will have 784 columns and the number of rows corresponds to the
+# number of images
+get_image_digit_train <- function (digit) {
+  idx <- mnist$train$labels==digit
+  images <- mnist$train$images[idx,]
+  return (images)
+}
+
+
+
+
+get_image_digit_test <- function (digit) {
+  idx <- mnist$test$labels==digit
+  images <- mnist$test$images[idx,]
+  return (images)
+}
+
+
+
+# Create a sample matrix
+
+
+```
+functions 
+
+```{r}
+get_width <- function(image){ 
+  #the function takes an image and looks at all columns those columns that contain pixels are counted.
+  a_digit <- matrix(image, nrow = 28)
+  adigit <- a_digit[, 28:1]
+  i <- 1
+  j <- 0
+
+  while (i <= 28) {
+    if (sum(adigit[i, ]) > 0) {
+      j <- j + 1
+    }
+    
+    i <- i + 1
+  }
+  return(j)
+  
+}
+
+get_width_light <- function(image){ 
+  #the function takes an image and looks at all columns those columns that contain pixels are counted.
+  a_digit <- matrix(image, nrow = 28)
+  adigit <- a_digit[, 28:1]
+  i <- 1
+  j <- 0
+
+  while (i <= 28) {
+    if (sum(adigit[i, ]) != 255*28 ) {
+      j <- j + 1
+    }
+    
+    i <- i + 1
+  }
+  return(j)
+  
+}
+
+
+get_size <- function(images){
+  
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the darkness of each digit
+  size_val <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    size_val[i] = get_width(images[i,]) #calcultate the darkness of each image provided 
+  }
+  return (size_val)
+}
+
+get_size_light <- function(images){
+  
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the darkness of each digit
+  size_val <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    size_val[i] = contrast_digit(images[i, ])
+    size_val[i] = get_width_light(images[i,]) #width of the image
+  }
+  return (size_val)
+}
+
+get_size_dark_light <- function(images){
+  
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the darkness of each digit
+  size_val <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    size_val[i] = contrast_digit(images[i,])
+    size_val[i] = get_width_light(images[i,]) #calcultate the darkness of each image provided 
+  }
+  return (size_val)
+}
+
+
+
+count_dark_pixels <- function (image){ # This function counts the dark pixels in the loop 
+  dark_idx <- image>128
+  num_pixels <- sum(dark_idx)
+  return(num_pixels)
+}
+
+get_num_pixels <- function(images){
+  # We get all images corresponding to a digit
+
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the ink of each digit
+  dark <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    dark[i] = count_dark_pixels(images[i, 1:392])
+  }
+  return (dark)
+}
+
+
+
+
+get_num_pixels_light <- function(images){
+  # We get all images corresponding to a digit
+
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the ink of each digit
+  dark <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    dark[i] = contrast_digit(images[i,])
+    dark[i] = count_dark_pixels(images[i, 1:392])
+  }
+  return (dark)
+}
+
+
+get_num_pixels_dark_light <- function(images){
+  # We get all images corresponding to a digit
+
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the ink of each digit
+  dark <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    dark[i] = contrast_digit(images[i,])
+    dark[i] = count_dark_pixels(images[i, 1:392])
+  }
+  return (dark)
+}
+
+
+
+contrast <- function(images){
+  # We get all images corresponding to a digit
+
+  n_images <- nrow(images)
+  
+  # We use a for loop to calculate the ink of each digit
+  dark <- vector(mode="integer", length=n_images)
+  for (i in 1:n_images) {
+    dark[i] = contrast_digit(images[i,])
+    dark[i] = count_dark_pixels(images[i, 1:392])
+  }
+  return (dark)
+}
+```
+
+
+```{r}
+# bringing in data
+
+image6_train <- get_image_digit_train(6)
+
+train_count_6_bool <- mnist$train$labels==6 # get boolean of 1s in train
+length6_train <- sum(train_count_6_bool) # get number of 1s for the loop
+idx6_train <- vector(mode = "integer", length = length6_train)
+n=1
+for (i in 1:60000){
+  
+  if (train_count_6_bool[i] == TRUE){
+    if (idx6_train[n] != 0){
+      n = n+1
+    }
+    idx6_train[n] <- i
+    
+  }
+  
+}
+
+image6_test <- get_image_digit_test(6)
+
+test_count_6_bool <- mnist$test$labels==6 # get boolean of 1s in test
+length6_test <- sum(test_count_6_bool) # get number of 1s for the loop
+idx6_test <- vector(mode = "integer", length = length6_test)
+n=1
+for (i in 1:10000){
+  
+  if (test_count_6_bool[i] == TRUE){
+    if (idx6_test[n] != 0){
+      n = n+1
+    }
+    idx6_test[n] <- i
+    
+  }
+  
+}
+
+image_6_dark_train <- get_num_pixels(image6_train)
+image_6_light_train <- get_num_pixels_light(image6_train)
+image_6_dark_light_train <- get_num_pixels_dark_light(image6_train)
+
+#calculate features for training get size of the image for ones 
+image_6_size_train <- get_size(image6_train)
+image_6_size_light_train <- get_size_light(image6_train)
+image_6_size_dark_light_train <- get_size_dark_light(image6_train)
+
+#calculate features for testing get the number of pixels for ones 
+image_6_dark_test <- get_num_pixels(image6_test)
+image_6_light_test <- get_num_pixels_light(image6_test)
+
+#calculate features for testing get size of the image for ones 
+image_6_size_test <- get_size(image6_test)
+image_6_size_light_test <- get_size_light(image6_test)
+image_6_size_dark_light_test <- get_size_dark_light(image6_test)
+
+
+#combine the tables to get our training and testing tables for ones training
+combined_table_6_train <- data.frame(Size = image_6_size_train, Size_Light = image_6_size_light_train,   Dark = image_6_dark_train, Light = image_6_light_train, Dark_Light = image_6_dark_light_train,  Number = 6, idx = idx6_train) #idx added -mitch
+#testing
+combined_table_6_test <- data.frame(Size = image_6_size_test, Size_Light = image_6_size_light_test, Size_Dark_Light = image_6_size_dark_light_test,   Dark = image_6_dark_test, Light = image_6_light_test,  Number = 6, idx = idx6_test) #idx added -mitch
+
+
+range(combined_table_6_train$Dark)
+```
+
+
+```{r}
+
+```
+
+
+
+

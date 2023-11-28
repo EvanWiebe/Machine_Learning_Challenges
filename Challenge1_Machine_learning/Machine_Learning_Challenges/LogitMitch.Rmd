@@ -1,0 +1,113 @@
+---
+title: "LogitMitch"
+author: "Mitchell Ardolf"
+date: "10/7/2023"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# pull data
+library(readr)
+raw_test <- read_csv("Mscs 341 F23/Project/Mitch, Evan, Adam/Data/sampled_data_test.csv")
+raw_train <- read_csv("Mscs 341 F23/Project/Mitch, Evan, Adam/Data/sampled_data_train.csv")
+
+# package requirements
+library(dplyr)
+library(tidyverse)
+library(tidymodels)
+library(viridis)
+tidymodels_prefer(quiet=TRUE)
+
+```
+
+
+```{r}
+# Data manipulation.
+# we need the output as a factor for classification.
+test_tbl <- raw_test %>%
+  mutate(Number = as.factor(Number))
+  
+train_tbl <- raw_train %>%
+  mutate(Number = as.factor(Number))
+
+# model building.
+
+# set our recipe.
+NumberRecipe <- 
+  recipe(Number ~ Size + Dark, data=train_tbl)
+
+# set our model type.
+logit_model <- logistic_reg() %>%
+  set_engine("glm") %>% # decide engine
+  set_mode("classification") # we are so wanting to do classification here
+
+# work flow.
+logit_wflow <- workflow() %>%
+  add_recipe(NumberRecipe) %>% # mix recipe and model
+  add_model(logit_model) 
+
+# fit the model.
+logit_fit_digit <- fit(logit_wflow, train_tbl)
+```
+
+
+We now need to test our model.
+```{r}
+# table to evaluate our table
+augmented_test <-augment(logit_fit_digit, test_tbl)
+
+#confusion matrix
+augment(logit_fit_digit, test_tbl)%>%
+  conf_mat(Number, .pred_class)
+
+# accuracy
+augmented_test%>%
+  accuracy(Number, .pred_class)
+
+#sensitivity
+augmented_test%>%
+  sens(Number, .pred_class)
+
+#specificity
+augmented_test%>%
+  yardstick::spec(Number, .pred_class)
+```
+
+
+```{r}
+# Decision boundary
+
+#find range of size
+range(augmented_test$Size)
+# gridvec1 as range of size (unit of 1 increase)
+gridvec1 <- c(4:20)
+
+#find range of dark pixels top half
+range(augmented_test$Dark)
+# gridvec2 as range of size (unit of 1 increase)
+gridvec2 <- c(12:67)
+
+# grid of theoretical values 
+(grid_tbl <- expand_grid(Size=gridvec1, Dark=gridvec2))
+
+# get the graph
+augment(logit_fit_digit, grid_tbl)%>% # percentages
+ggplot(mapping = aes(x = Size, y = Dark, z = .pred_4, fill = .pred_4)) +
+  geom_raster() +
+  stat_contour(breaks=c(0.5), color="darkolivegreen1") + #bayes boundary
+  scale_fill_viridis(option="magma")
+
+augment(logit_fit_digit, grid_tbl)
+```
+
+
+glmnet, multinomial. 
+
+How is our model using sixes? does it return them as only 1 and 4 or 1, 4, and 6. 
+
+
+
