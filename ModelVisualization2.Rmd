@@ -1,0 +1,491 @@
+---
+title: "Challenge Two: The Advantages and Drawbacks of Generalization within a CNN model"
+author: "Evan Wiebe"
+date: "11/18/2023"
+output:
+  pdf_document:
+    fig_width: 8  
+    fig_height: 5  
+  html_document: 
+    fig_width: 8  
+    fig_height: 5  
+ 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+#library(imager)
+#library(magick)
+library(jpeg)
+library(ggplot2)
+library(broom)
+library(pROC)
+library(reticulate)
+library(keras)
+library(tensorflow)
+library(tidyverse)
+```
+
+In the realm of machine learning, deep learning models occupy a distinct position compared to conventional learning algorithms. While many algorithms are primarily designed to separate or fit data around a hyperplane, the methodology employed in deep learning significantly diverges from these conventional approaches. Deep learning, in essence, draws inspiration from the intricate networks of neurons within the human brain. Unlike traditional algorithms, which often revolve around the manipulation of data to conform to a hyperplane, deep learning operates on a fundamentally different principle. Its conceptual foundation is rooted in the intricate connectivity and functionality of neural networks observed in the human brain (Nithyashree, 2021). This departure from standard learning algorithms underscores the unique paradigm and architecture that characterizes deep learning models.
+
+To demonstrate the functionality and benefits of a deep learning model, we will be using a specific dataset which consists of a collection brain MRI scans. Half of the provided images showcase MRI scans of brains with tumors, while the remaining half consists of MRI scans depicting brains without tumors. The following illustrates an example pair, the image on the left is a brain with a tumor, and the image on the right is a tumor-free brain. The goal of the model will be to correctly identify which brain scans contain tumors.
+
+```{r, echo=FALSE}
+# Load the jpeg package
+
+# Function to read and plot an image
+plotImage <- function(image_path) {
+  img <- readJPEG(image_path)
+  raster_img <- as.raster(img)
+  plot(1:2, type = 'n', xlab = "", ylab = "", axes = FALSE, asp = 1)
+  rasterImage(raster_img, 1, 1, 2, 2)
+}
+
+# Replace with your image filenames and paths
+image_paths <- c("~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TRAIN/YES/y103.jpg",
+                 "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TRAIN/NO/no63.jpg")
+
+# Set the layout parameters
+num_images <- length(image_paths)
+num_cols <- 2
+num_rows <- ceiling(num_images / num_cols)
+
+# Set the size of the plotting area
+par(mfrow = c(num_rows, num_cols), mar = c(2, 2, 2, 2))
+
+# Loop through image paths and plot each image
+for (i in 1:num_images) {
+  plotImage(image_paths[i])
+}
+
+# Reset layout parameters to default
+par(mfrow = c(1, 1), mar = c(5, 4, 4, 2) + 0.1)
+
+```
+
+## Data Storage
+
+
+To most effectively use store data when training a model one must store said data in a specific way such that it can be easily and efficiently accessed by the model(Team, Keras).  This necessitates the establishment of a hierarchical directory structure under a primary folder, encompassing three subfolders dedicated to training, testing, and validation of the model. Within each folder, there will exist a sub-folder for each for each of the possible output categories. Within our example network, the folder system looks as such.
+
+ 
+
+\begin{verbatim}
+
+
+
+
+
+Final Data Folder. 
+   |
+   |--- Training
+   |      |
+   |      |-- Contains Tumor
+   |      | 	
+   |      |-- No Tumor
+   |
+   |--- Testing 
+   |      | 	
+   |      |-- Contains Tumor 
+   |      | 	
+   |      |-- No Tumor 
+   |
+   |--- Validation
+          |	
+          |-- Contains Tumor 
+          |
+          |-- No Tumor
+\end{verbatim}
+
+
+
+
+
+This type of network allows for the use flow_images_from_directory() function in R. 
+
+```{r,echo=FALSE }
+image_data_no_generalization<- image_data_generator(
+  rescale = 1/255
+)
+```
+
+
+## Dataset Creation
+
+
+```{r,echo=FALSE}
+# Image Processing
+image_data_generator2_generalize <- image_data_generator(
+  rescale = 1/255,
+  rotation_range = 40,
+  width_shift_range = 0.2,
+  height_shift_range = 0.2,
+  shear_range = 0.2,
+  zoom_range = 0.2,
+  horizontal_flip = TRUE,
+  fill_mode = 'nearest'
+)
+```
+
+The `flow_images_from_directory()` function, inherent to the Keras library, serves a pivotal role in the context of image data processing for deep learning applications. Specifically designed to streamline the organization and labeling of images, this function plays a crucial part in preparing datasets for model training. Its primary objective is to ensure that, when utilized during the model-building phase, the dataset is structured in a manner conducive to effective utilization (Nithyashree, 2021).
+```{r}
+#Training Creation
+train_generator_no_generalization <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TRAIN",
+  generator = image_data_no_generalization,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary",  # or "categorical" for multi-class
+  #subset = "training"
+)
+```
+The purpose of `flow_images_from_directory()` is twofold. Firstly, it facilitates the centralization of images by providing a mechanism to neatly organize them under meaningful labels. This structured organization is imperative for seamless integration into the model-building pipeline. Secondly, the function aims to create a dataset format that is not only organized but also readily usable. The ultimate goal is to enhance the efficiency and effectiveness of the deep learning model by optimizing the input data.
+```{r}
+validation_generator_no_generalization <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/VAL",
+  generator = image_data_no_generalization,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary",  # or "categorical" for multi-class
+  #subset = "validation"
+)
+```
+
+```{r}
+#Training Creation
+train_generator <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TRAIN",
+  generator = image_data_generator2_generalize,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary",  # or "categorical" for multi-class
+  #subset = "training"
+)
+```
+
+```{r}
+#val Creation
+validation_generator <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/VAL",
+  generator = image_data_generator2_generalize,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary",  # or "categorical" for multi-class
+  #subset = "validation"
+)
+```
+
+The most important part of the flow_images_from_directory() function is the call to the image_data_generator in the code provided the line is generator = image_data_generator2_generalize. It is important when training a CNN deep learning model using image recognition that the images passed to the model allow the model to correctly interpret said images and thus the images themselves must be modified so that all can be correctly used in the neural network. This action is performed by rescale = 1/255  in the code below. Rescale = 1/255 normalizes the image such that every original pixel value of every image  (typically ranging from 0 to 255 for each channel) is divided by 255 leaving the range now to be between zero and one .
+
+```{r,eval=FALSE }
+image_data_no_generalization<- image_data_generator(
+  rescale = 1/255
+)
+```
+
+When crafting a deep learning model, there's a risk of over tailoring it way too closely to the training dataset, resulting in too perfect performance on similar testing data. However, this specificity becomes a weakness when faced with slightly divergent data, leading to potential inaccuracies and overfitting. The 'image_data_generator()' function addresses these issues by incorporating essential features to enhance model robustness, generalization abilities, and resistance to overfitting. It's crucial to note that these features, discussed in the context of our explanatory model, provide practical insights for their application (Nithyashree, 2021).
+
+
+Note: Keep in mind that all functions are using values from our explanatory model 
+
+
+**rotation_range = 40**: Randomly rotates the input images by degrees within the range [-40, 40]. Introduces variability in the orientation of images, allowing the model to learn features from different perspectives and improve robustness (Team, Keras).
+
+
+**width_shift_range = 0.2:** Randomly shifts the width (horizontal translation) of the images by a fraction of the total width, within the range [-20%, 20%]. Adds horizontal variations to the training images, helping the model become invariant to small translations (Team, Keras).
+
+
+**height_shift_range = 0.2**: Randomly shifts the height (vertical translation) of the images by a fraction of the total height, within the range [-20%, 20%]. Similar to width shift, it introduces vertical variations to the training images (Team, Keras).
+
+
+**shear_range = 0.2**: Applies shearing transformations to the images by a fraction within the range [-20%, 20%].  Introducing shearing helps the model become more robust to deformations and distortions in the input images (Team, Keras).
+
+
+**zoom_range = 0.2**: Randomly zooms into the images by a factor within the range [0.8, 1.2]. Enhances the model's ability to recognize objects at different scales, making it more adaptable to variations in object size (Team, Keras).
+
+
+**horizontal_flip = TRUE**: Randomly flips images horizontally. Introduces left-right symmetry in the training data, which can be beneficial for tasks where the orientation of objects is not critical (Team, Keras).
+
+
+**fill_mode = 'nearest'**: Determines the strategy for filling in newly created pixels resulting from transformations. Setting it to 'nearest' ensures that the pixel values of newly created pixels are similar to the nearest existing pixel, maintaining the integrity of the image (Team, Keras).
+
+
+The results of said strategies are explained below:
+
+
+**Artificially Increase Diversity.** Data augmentation involves applying various transformations to the original training images, creating new, slightly altered versions of the data. By introducing controlled variations, the augmented dataset becomes more diverse than the original dataset. This diversity is crucial for training a robust and generalizable model (Team, Keras).
+
+
+**Help the Model Generalize Better.** Generalization refers to a model's ability to perform well on unseen or new data. The augmented dataset exposes the model to a broader range of scenarios, variations, and conditions. This exposure helps the model learn more robust and adaptable features, making it better equipped to handle diverse inputs during inference (Team, Keras).
+
+
+**Expose to Various Transformations.** The augmentation features, such as rotation, shifting, zooming, and flipping, introduce different transformations to the images. Each transformation simulates a different aspect of real-world variability. For instance, rotation simulates changes in object orientation, shifting simulates changes in position, and zooming simulates changes in scale. By exposing the model to these variations, it becomes more resilient to changes it might encounter in real-world scenarios(Team, Keras).
+
+
+**Create variations in Input Images.** The input images undergo random transformations, creating variations while preserving the essential characteristics of the objects. The model learns to recognize features not just in their original form but also in slightly altered forms. This ability is crucial for handling real-world scenarios where objects may appear in different orientations, positions, or scales (Team, Keras).
+
+
+**Highlight the Importance of Exposure during Training.** Augmentation is applied during the training phase, not during testing or inference. During training, the model adapts to the diverse set of augmented examples. However, during testing, it is evaluated on the original, unaltered data. This ensures that the model's performance is assessed on its ability to generalize to new, unseen data rather than memorizing the specific augmented examples (Team, Keras).
+
+
+**Mitigate overfitting in the model.** Overfitting occurs when a model becomes too specific to the training data and performs poorly on new data. Augmentation helps mitigate overfitting by preventing the model from memorizing specific details of the training images. Instead, it learns more robust features that are applicable to a broader range of scenarios (Team, Keras).
+
+
+To visualize the effects of said generalization methods I have created two image_data_generator() functions the first (see above) of which has no generalization measures and the second of which contains all the aforementioned features. When looking at the way the results of both image generations it becomes quickly apparent that there exists a significant difference between them (Team, Keras). 
+
+```{r, eval=FALSE}
+# Image Processing
+image_data_generator2_generalize <- image_data_generator(
+  rescale = 1/255,
+  rotation_range = 40,
+  width_shift_range = 0.2,
+  height_shift_range = 0.2,
+  shear_range = 0.2,
+  zoom_range = 0.2,
+  horizontal_flip = TRUE,
+  fill_mode = 'nearest'
+)
+```
+
+
+
+## Model Creation
+
+
+To visualize the effects of said generalization methods I have created a singular CNN deep learning model. My initial plan was to create and train two models one with data that had been modified and one without and compare them. Sadly R does not allow that on a single markdown file and as such I have just trained the model twice so as to use the training of each CNN model to visualize what is going on. The following following code is the creation of said CNN model.
+
+```{r}
+batch <- generator_next(train_generator)
+```
+
+```{r}
+#Our CNN Model itself
+Model_generalize <- keras_model_sequential() %>%
+  # Convolutional layers
+  layer_conv_2d(filters = 32, kernel_size = c(3, 3), activation = 'relu', input_shape = c(150, 150, 3)) %>%
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+  layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = 'relu') %>%
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+  layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = 'relu') %>%
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>%
+  layer_dropout(rate = 0.5) %>%
+  
+  
+  # Flatten layer
+  layer_flatten() %>%
+  
+  # Dense layers with dropout for regularization
+  layer_dense(units = 512, activation = 'relu') %>%
+  layer_dropout(rate = 0.5) %>%
+  layer_dense(units = 256, activation = 'relu') %>%
+  layer_dropout(rate = 0.5) %>%
+  
+  # Output layer
+  layer_dense(units = 1, activation = 'sigmoid')
+```
+
+```{r}
+#Optimizes so the learning would fall off and not overfit
+  optimizer <- optimizer_rmsprop(learning_rate = 0.001)
+```
+
+```{r}
+#the compile for this 
+  Model_generalize %>% compile(
+    loss = 'binary_crossentropy',
+    optimizer = optimizer,
+    #optimizer = optimizer_rmsprop(),
+    metrics = c('accuracy')
+  )
+```
+
+```{r, results='hide'}
+#fit using generalization 
+callback_early_stopping <- callback_early_stopping(patience = 5)
+history_generalize <- Model_generalize %>% fit(
+  train_generator,
+  steps_per_epoch = nrow(train_generator),
+  epochs = 20,
+  validation_data = validation_generator,
+  validation_steps = nrow(validation_generator),
+  callbacks = list(callback_early_stopping)  # Add early stopping callback
+)
+```
+
+
+```{r, results='hide'}
+#fit not using generalization
+callback_early_stopping <- callback_early_stopping(patience = 5)
+history_no_generalize <- Model_generalize %>% fit(
+  train_generator_no_generalization,
+  steps_per_epoch = nrow(train_generator_no_generalization),
+  epochs = 20,
+  validation_data = validation_generator_no_generalization,
+  validation_steps = nrow(validation_generator_no_generalization),
+  callbacks = list(callback_early_stopping)  # Add early stopping callback
+)
+```
+
+*Results of the Fitting Process with both Datasets*
+
+The following graphs display the results of the training the model twice on the modified and unmodified data sets. These models were trained with 30 Epocs in total and the graphs show the calculated accuracy and los between the training dataset and the validation dataset. 
+
+*This graph shows the history of training the model using generalized data*
+
+```{r, echo=FALSE}
+plot(history_generalize)
+```
+
+
+*This graph shows the history of training the model using non-generalized data*
+
+```{r, echo=FALSE}
+plot(history_no_generalize)
+```
+As observed in the outcomes of each CNN model training displayed above, the unaltered training data consistently exhibits superior performance compared to the modified data designed for enhanced robustness. This outcome aligns with expectations, considering that deep learning models often excel in recognizing patterns when the input data is in an optimal state. The disparity in performance becomes more pronounced when examining variations in both loss and accuracy metrics.
+
+```{r, echo=FALSE}
+epochs <- seq(1, history_no_generalize$params$epochs)
+
+# Subset the loss values from history$metrics based on the epoch values
+loss_values <- history_generalize$metrics$loss[epochs]
+val_loss_values <- history_generalize$metrics$val_loss[epochs]
+
+accuracy_values <- history_generalize$metrics$accuracy[epochs]
+val_accuracy_values <- history_generalize$metrics$val_accuracy[epochs]
+
+NG_loss_values <- history_no_generalize$metrics$loss[epochs]
+NG_val_loss_values <- history_no_generalize$metrics$val_loss[epochs]
+
+NG_accuracy_values <- history_no_generalize$metrics$accuracy[epochs]
+NG_val_accuracy_values <- history_no_generalize$metrics$val_accuracy[epochs]
+
+# Create the data frame
+df_general <- data.frame(
+  epoch = epochs,
+  loss = loss_values,
+  val_loss = val_loss_values,
+  accurcy = accuracy_values,
+  val_accurcy = val_accuracy_values
+)
+
+df_non_general <- data.frame(
+  epoch = epochs,
+  loss = NG_loss_values,
+  val_loss = NG_val_loss_values,
+  accurcy = NG_accuracy_values,
+  val_accurcy = NG_val_accuracy_values
+)
+```
+
+
+The following plot makes a comparison between how the model performs using generalization when compared against how the model performs when using non generalized data.
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_point(data = df_general, aes(x = epoch, y = loss))+
+  geom_point(data = df_general, aes(x = epoch, y = val_loss))+
+  geom_point(data = df_non_general, aes(x = epoch, y = loss))+
+  geom_point(data = df_non_general, aes(x = epoch, y = val_loss))+
+  geom_line(data = df_general, aes(x = epoch, y = loss, color = "Training Loss (With Generalization)")) +
+  geom_line(data = df_general, aes(x = epoch, y = val_loss, color = "Validation Loss (With Generalization)")) +
+  geom_line(data = df_non_general, aes(x = epoch, y = loss, color = "Training Loss (Without Generalization)")) +
+  geom_line(data = df_non_general, aes(x = epoch, y = val_loss, color = "Validation Loss (Without Generalization)")) +
+  labs(title = "Comparison of Learning Curves with and without Generalization",
+       x = "Epoch",
+       y = "Loss")+
+  scale_color_manual(values = c("red", "blue", "orange", "purple"))+
+  scale_x_continuous(breaks = seq(min(df_general$epoch), max(df_general$epoch), by = 1))
+```
+
+```{r, echo=FALSE, eval=FALSE}
+ggplot() +
+  geom_point(data = df_general, aes(x = epoch, y = accurcy))+
+  geom_point(data = df_general, aes(x = epoch, y = val_accurcy))+
+  geom_point(data = df_non_general, aes(x = epoch, y = accurcy))+
+  geom_point(data = df_non_general, aes(x = epoch, y = val_accurcy))+
+  geom_line(data = df_general, aes(x = epoch, y = accurcy, color = "Training Accurcy (With Generalization)")) +
+  geom_line(data = df_general, aes(x = epoch, y = val_accurcy, color = "Validation Accurcy (With Generalization)")) +
+  geom_line(data = df_non_general, aes(x = epoch, y = accurcy, color = "Training Accurcy (Without Generalization)")) +
+  geom_line(data = df_non_general, aes(x = epoch, y = val_accurcy, color = "Validation Accurcy (Without Generalization)")) +
+  labs(title = "Comparison of Learning Curves with and without Generalization",
+       x = "Epoch",
+       y = "Accuracy") +
+  scale_color_manual(values = c("red", "blue", "orange", "purple"))+
+  scale_x_continuous(breaks = seq(min(df_general$epoch), max(df_general$epoch), by = 1))
+```
+
+It is evident from the results that the validation lines associated with the modified image training set shows a greater degree of variability compared to the unmodified image training set. This outcome is anticipated, given that the modified set, characterized by less standardized images, introduces more variability and unusual results. This means that the validation image set experiences challenges in adapting to these non-standard images, leading to increased variability in the performance metrics.
+
+The diminished performance of the modified set can be attributed to the heightened complexity introduced by the non-standardized images. While our model thrives on identifying consistent patterns, introducing variability in the form of unconventional data points (in this cases modified images) can impede the model's ability to generalize effectively. The variations in orientation, position, and scale resulting from data augmentation, while beneficial for training adaptability, may pose challenges during validation, particularly when faced with images that deviate significantly from the norm.
+
+The less than ideal performance of the modified set in the CNN model underscores the delicate balance required in data preprocessing. While augmenting the dataset enhances the model's robustness, there is a critical need to strike a balance to prevent the introduction of excessive variability that might hinder generalization on unconventional or unexpected data points.
+
+## Conclusions
+
+
+Finally, a direct evaluation of the deep learning model itself reveals intriguing insights. Upon assessing the model's performance on the dataset, a notable consistency emerges, the model demonstrates comparable results on both modified and unaltered testing data. However, contrast appears when looking at the models performance when trained on the on the modified image set versus the model trained exclusively with the unmodified data.
+
+```{r}
+test_generator_generalize <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TEST",
+  generator = image_data_generator2_generalize,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary"
+)
+
+evaluation_result <- Model_generalize %>% evaluate_generator(test_generator_generalize, steps = length(test_generator_generalize))
+print(evaluation_result)
+```
+
+```{r}
+test_generator_no_genelization <- flow_images_from_directory(
+  directory = "~/Desktop/Fall 2023/ADM/Challenge2_Deep_Learning/deep_learn/TEST",
+  generator = image_data_no_generalization,
+  target_size = c(150, 150),
+  batch_size = 32,
+  class_mode = "binary"
+)
+
+evaluation_result <- Model_generalize %>% evaluate_generator(test_generator_no_genelization, steps = length(test_generator_no_genelization))
+print(evaluation_result)
+```
+Surprisingly, the deep learning model exhibits somewhat superior performance on the modified image set. This suggests that exposing our model to various transformations, and unique images showcases its ability to navigate through the augmented features introduced through data pre-processing even if it as at the cost of some exact predictability.
+
+Conversely, when compared to the model exclusively trained with non modified images, the model's performance notably falters when trying to make predictions on a data set of modified images. In contrast it performs much better than the other model when only using un-modified images for testing. This discrepancy hints at the challenges posed by attempting to generalize across datasets with differing degrees of preprocessing. The model, finely tuned to the intricacies of the modified dataset during training, encounters difficulties when confronted with the comparatively pristine dataset it wasn't explicitly optimized for. 
+
+In essence, these findings underscore the importance of aligning the training dataset's characteristics with the expectations for the testing dataset. While the model showcases adaptability to modifications during training, its performance can be significantly influenced by the specific nature of the training data. To overcome such limitations it is important to make the model more robust (see above for how to pre-proces data to make a model more robust.
+
+A key aspect highlighted is the importance of data preprocessing, with a specific focus on organizing data storage for efficient model training. The 'flow_images_from_directory()' function, part of the Keras library, is discussed, along with its incorporation of the 'image_data_generator' to enhance interpretative capabilities through normalization ('rescale = 1/255'). It is important to keep in mind the critical role of data augmentation in deep learning, showcasing strategies such as rotation, shifting, shearing, zooming, and flipping. Results from two 'image_data_generator()' functions reveal that, as expected, unmodified training data outperforms the more robust, modified dataset in both loss and accuracy metrics. Analysis of training and validation graphs illustrates the trade-off between variability and performance, emphasizing the significance of data augmentation in mitigating overfitting and improving generalization. Direct scrutiny of the deep learning model's performance indicates comparable results on modified and unmodified testing data, with superior performance on the modified training dataset. This nuanced performance underscores the delicate balance required for model optimization and the importance of thoughtful data preprocessing for effective deep learning models.
+
+
+## Bibliography 
+
+
+Team, Keras. “Keras Documentation: Image Data Loading.” Keras, keras.io/api/data_loading/image/. Accessed 21 Nov. 2023.
+https://keras.io/api/data_loading/image/.
+
+
+V, Nithyashree. “Step-by-Step Guide for Image Classification on Custom Datasets.” Analytics Vidhya, 19 July 2021, https://www.analyticsvidhya.com/blog/2021/07/step-by-step-guide-for-image-classification-on-custom-datasets/.
+
+
+Silge, Emil Hvitfeldt and Julia. Supervised Machine Learning for Text Analysis in R. 
+smltar.com, https://smltar.com/. Accessed 21 Nov. 2023.
+
+
+What Is ChatGPT Doing … and Why Does It Work? 14 Feb. 2023, 
+https://writings.stephenwolfram.com/2023/02/what-is-chatgpt-doing-and-why-does-it-work/.
+
+
+
+
+
+
+
+
+
+
+
+
+
